@@ -1,245 +1,174 @@
-
 # Universal Data Connector
 
-## 🎯 Assignment Overview
+A production-ready **FastAPI** backend that provides a unified interface for an LLM-powered voice assistant to query multiple business data sources (CRM, Support Tickets, Analytics) using **Google Gemini function calling**.
 
-Build a production-quality **Universal Data Connector** using FastAPI that provides a unified interface for an LLM to access different data sources through function calling. The connector must be intelligent enough to identify data types, apply business rules, and optimize responses for voice conversations where bandwidth and latency matter.
-
-### Business Context
-You're building this for a SaaS company where customers need to query their data (CRM, support tickets, analytics) through voice conversations with an AI assistant. The key constraints are:
-- Voice conversations require quick, concise responses (not massive data dumps)
-- Data must be contextually relevant and filtered
-- The LLM needs metadata to understand how to use each data source
-- Multiple data sources should have a consistent interface
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)
+![Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-4285F4?logo=google&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 
 ---
 
-## 📋 Requirements
+## Overview
 
-### Core Functionality
-1. **FastAPI Server** with health checks and proper error handling
-2. **Multiple Data Connectors** (at least 3 types):
-   - Customer CRM data
-   - Support ticket system
-   - Analytics/metrics data
-3. **Intelligent Data Filtering**:
-   - Automatic pagination for large datasets
-   - Business rules engine to filter data appropriately
-   - Smart summarization for voice contexts
-4. **LLM Function Calling Interface**:
-   - OpenAPI schema generation for function calling
-   - Clear parameter validation
-   - Structured responses with metadata
-5. **Data Type Detection & Handling**:
-   - Identify whether data is tabular, time-series, hierarchical, etc.
-   - Apply appropriate transformations
-   - Include data freshness/staleness indicators
-
-### Technical Requirements
-- Python 3.11+
-- FastAPI with Pydantic v2 models
-- Proper logging and error handling
-- Type hints throughout
-- Configuration management (environment variables)
-- Mock data generators included
-- Docker deployment ready
-
-### Voice-Optimized Business Rules
-Implement rules like:
-- **Limit results**: Default max 10 items for voice
-- **Prioritization**: Return most recent/relevant first
-- **Summarization**: Aggregate metrics instead of raw data when appropriate
-- **Context awareness**: Include helpful metadata (e.g., "showing 3 of 47 results")
-- **Freshness indicators**: "Data as of 2 hours ago"
-
----
-
-## 🏗️ Architecture
+Users ask natural-language questions through a voice assistant. The system uses **Gemini 2.5 Flash** to decide which data source to query, executes the query locally, and returns a concise, voice-friendly answer.
 
 ```
-universal-data-connector/
+User: "How many open support tickets do we have?"
+  ↓
+POST /llm/query
+  ↓
+Gemini picks → query_support_tickets(status="open")
+  ↓
+Business Rules → Voice Optimizer
+  ↓
+"You have 5 open support tickets, 2 are high priority."
+```
+
+---
+
+## Features
+
+- **3 Data Connectors** — CRM customers, support tickets, analytics metrics
+- **LLM Function Calling** — Gemini automatically selects the right data source
+- **Voice-Optimized Responses** — concise summaries with context ("showing 3 of 47 results")
+- **Business Rules Engine** — smart prioritization, result limiting, and sorting
+- **Data Type Detection** — identifies tabular, time-series, or hierarchical data
+- **Freshness Indicators** — "Data as of 2 minutes ago"
+- **Rule-Based Fallback** — works without an API key via keyword routing
+- **Docker Ready** — single command deployment
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| Framework | FastAPI + Pydantic v2 |
+| LLM | Google Gemini 2.5 Flash (via `langchain-google-genai`) |
+| Language | Python 3.11+ |
+| Data | JSON mock data (simulates real databases) |
+| Deployment | Docker + Docker Compose |
+
+---
+
+## Project Structure
+
+```
 ├── app/
-│   ├── main.py                 # FastAPI application entry point
-│   ├── config.py               # Configuration management
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── common.py           # Shared models
-│   │   ├── crm.py              # CRM data models
-│   │   ├── support.py          # Support ticket models
-│   │   └── analytics.py        # Analytics models
+│   ├── main.py                    # FastAPI entry point
+│   ├── config.py                  # Environment-based configuration
 │   ├── connectors/
-│   │   ├── __init__.py
-│   │   ├── base.py             # Base connector interface
-│   │   ├── crm_connector.py    # CRM data connector
-│   │   ├── support_connector.py
-│   │   └── analytics_connector.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── data_identifier.py  # Identifies data types
-│   │   ├── business_rules.py   # Business rules engine
-│   │   └── voice_optimizer.py  # Voice-specific optimizations
+│   │   ├── base.py                # Abstract base connector
+│   │   ├── crm_connector.py       # Customer CRM data
+│   │   ├── support_connector.py   # Support tickets
+│   │   └── analytics_connector.py # Analytics & metrics
+│   ├── models/                    # Pydantic v2 schemas
 │   ├── routers/
-│   │   ├── __init__.py
-│   │   ├── health.py
-│   │   └── data.py             # Data access endpoints
+│   │   ├── health.py              # GET /health
+│   │   ├── data.py                # GET /data/{source}
+│   │   └── llm.py                 # GET /llm/tools, POST /llm/query
+│   ├── services/
+│   │   ├── business_rules.py      # Filtering & prioritization
+│   │   ├── data_identifier.py     # Data type detection
+│   │   └── voice_optimizer.py     # Voice-friendly summaries
 │   └── utils/
-│       ├── __init__.py
-│       ├── mock_data.py        # Mock data generators
-│       └── logging.py          # Logging configuration
-├── tests/
-│   ├── __init__.py
-│   ├── test_connectors.py
-│   ├── test_business_rules.py
-│   └── test_api.py
-├── data/
-│   ├── customers.json          # Sample CRM data
-│   ├── support_tickets.json    # Sample support data
-│   └── analytics.json          # Sample metrics
-├── requirements.txt
+│       └── logging.py             # Logging configuration
+├── data/                          # Mock JSON data files
+├── tests/                         # Unit tests
+├── demo.py                        # End-to-end demo script
 ├── Dockerfile
 ├── docker-compose.yml
-├── .env.example
-└── README.md
+└── requirements.txt
 ```
 
 ---
 
-## 🎓 Learning Objectives
+## Getting Started
 
-By completing this exercise, you will demonstrate:
-1. **API Design**: Creating clean, RESTful APIs with FastAPI
-2. **Type Safety**: Using Pydantic models and Python type hints
-3. **Abstraction**: Building reusable base classes and interfaces
-4. **Business Logic**: Implementing smart filtering and rules
-5. **LLM Integration**: Understanding function calling patterns
-6. **Production Readiness**: Logging, error handling, configuration
-7. **Voice UX Considerations**: Optimizing for conversational AI
+### Prerequisites
 
----
+- Python 3.11+
+- Google API Key ([get one free](https://aistudio.google.com/apikey))
 
-## ✅ Evaluation Criteria
-
-### Code Quality (30%)
-- Clean, readable code with proper structure
-- Type hints and Pydantic models used correctly
-- Comprehensive error handling
-- Logging throughout
-
-### Functionality (30%)
-- All endpoints working correctly
-- Business rules properly implemented
-- Data filtering and optimization working
-- Mock data realistic and useful
-
-### LLM Integration (20%)
-- OpenAPI schema properly generated
-- Function calling examples work
-- Responses optimized for voice
-- Good parameter validation
-
-### Documentation (20%)
-- Clear README with setup instructions
-- Inline code comments where needed
-- API documentation (auto-generated + custom)
-- Example usage scenarios
-
----
-
-## 🚀 Getting Started
-
-### Phase 1: Setup (Day 1)
-1. Set up project structure
-2. Create base models and connector interface
-3. Implement mock data generators
-4. Get FastAPI running with health check
-
-### Phase 2: Core Connectors (Days 2-3)
-1. Implement CRM connector
-2. Implement support ticket connector
-3. Implement analytics connector
-4. Add data type identification
-
-### Phase 3: Business Rules (Day 4)
-1. Build business rules engine
-2. Implement voice optimizations
-3. Add pagination and filtering
-4. Test with sample queries
-
-### Phase 4: LLM Integration (Day 5)
-1. Create function calling schemas
-2. Test with LLM (Claude or OpenAI)
-3. Optimize response formats
-4. Add metadata and context
-
-### Phase 5: Polish (Day 6)
-1. Add comprehensive logging
-2. Write tests
-3. Create Docker setup
-4. Write documentation
-
----
-
-## 📝 Submission Requirements
-
-1. **GitHub Repository** with:
-   - All source code
-   - README with setup instructions
-   - Sample .env file
-   - Working Docker Compose setup
-
-2. **Demo Video** (5 minutes max):
-   - Show the API running
-   - Demonstrate 3-4 example queries
-   - Show LLM function calling integration
-   - Explain one interesting technical decision
-
-3. **Written Summary** (1 page):
-   - Challenges faced and solutions
-   - Design decisions and tradeoffs
-   - What you'd improve with more time
-   - What you learned
-
----
-
-## 💡 Tips for Success
-
-1. **Start Simple**: Get one connector working end-to-end before adding complexity
-2. **Use Type Hints**: Let your IDE help you catch bugs early
-3. **Test as You Go**: Don't wait until the end to test
-4. **Think About the User**: Would this response make sense in a voice conversation?
-5. **Document Your Thinking**: Add comments explaining "why" not just "what"
-6. **Ask Questions**: If requirements are unclear, make reasonable assumptions and document them
-
----
-
-## 📚 Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Pydantic V2 Documentation](https://docs.pydantic.dev/)
-- [OpenAI Function Calling Guide](https://platform.openai.com/docs/guides/function-calling)
-- [Anthropic Tool Use Documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use)
-
----
-
-## 🎉 Bonus Challenges (Optional)
-
-If you finish early and want to go further:
-1. Add caching layer (Redis) for frequently accessed data
-2. Implement rate limiting per data source
-3. Add streaming responses for large datasets
-4. Create a web UI to test the API
-5. Add authentication and API key management
-6. Implement webhook support for real-time data updates
-7. Add data export functionality (CSV, Excel)
-
-Good luck! We're excited to see what you build. 🚀
-
-## Run locally
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/P-Saroha/Universal-Data-Connector.git
+cd Universal-Data-Connector
+
+# Create and activate virtual environment
+python -m venv venv
+.\venv\Scripts\activate        # Windows
+# source venv/bin/activate     # macOS/Linux
+
+# Install dependencies
 pip install -r requirements.txt
+```
+
+### Configuration
+
+Create a `.env` file in the project root:
+
+```env
+GOOGLE_API_KEY=your-google-api-key-here
+GOOGLE_MODEL=gemini-2.5-flash
+```
+
+### Run the Server
+
+```bash
 uvicorn app.main:app --reload
 ```
+
+Open **http://localhost:8000/docs** to explore the interactive API docs.
+
+### Run the Demo
+
+In a separate terminal:
+
+```bash
+python demo.py
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/data/{source}` | Direct data query — `source`: `crm`, `support`, `analytics` |
+| `GET` | `/llm/tools` | Returns function definitions for LLM tool calling |
+| `POST` | `/llm/query` | Natural-language question → Gemini function calling → voice answer |
+
+### Example: LLM Query
+
+```bash
+curl -X POST http://localhost:8000/llm/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How many open support tickets do we have?", "voice_mode": true}'
+```
+
+**Response:**
+```json
+{
+  "question": "How many open support tickets do we have?",
+  "answer": "You currently have 5 open support tickets. 2 are high priority.",
+  "function_called": "query_support_tickets",
+  "function_args": {"status": "open"},
+  "data": { "..." }
+}
+```
+
+### Example: Direct Data Query
+
+```bash
+curl "http://localhost:8000/data/crm?status=active&limit=5"
+```
+
+---
 
 ## Docker
 
@@ -247,6 +176,52 @@ uvicorn app.main:app --reload
 docker-compose up --build
 ```
 
-Visit: http://localhost:8000/docs
-#   U n i v e r s a l - D a t a - C o n n e c t o r  
- 
+Visit: **http://localhost:8000/docs**
+
+---
+
+## Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+---
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────┐
+│                  POST /llm/query                │
+│            "Show me active customers"           │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│           Google Gemini 2.5 Flash               │
+│     Decides: query_crm(status="active")         │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌──────────┬──────────────┬───────────────────────┐
+│   CRM    │   Support    │     Analytics         │
+│Connector │  Connector   │     Connector         │
+└──────────┴──────────────┴───────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│  Business Rules → Voice Optimizer → Response    │
+└─────────────────────────────────────────────────┘
+```
+
+1. **User sends a question** via `POST /llm/query`
+2. **Gemini decides** which function/connector to call and with what arguments
+3. **Connector fetches** data from JSON files (simulating a real DB)
+4. **Business rules** prioritize, limit, and sort the results
+5. **Voice optimizer** generates a concise spoken-friendly summary
+6. **Gemini formats** the final natural-language answer
+
+Without an API key, the system falls back to **keyword-based routing** (no LLM needed).
+
+---
+
+## License
+
+This project is for educational and demonstration purposes.
